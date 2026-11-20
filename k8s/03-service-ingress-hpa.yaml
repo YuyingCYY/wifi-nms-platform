@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: nms-backend-svc
+  namespace: wifi-nms
+spec:
+  type: ClusterIP
+  selector:
+    app: nms-backend
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+---
+# Compatible with K3s built-in Traefik Ingress or standard NGINX Ingress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nms-backend-ingress
+  namespace: wifi-nms
+spec:
+  rules:
+    - host: nms.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nms-backend-svc
+                port:
+                  number: 80
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: nms-backend-hpa
+  namespace: wifi-nms
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: nms-backend
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

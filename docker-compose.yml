@@ -1,0 +1,108 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: nms-postgres
+    environment:
+      POSTGRES_DB: wifinms
+      POSTGRES_USER: nms_admin
+      POSTGRES_PASSWORD: nms_secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nms_admin -d wifinms"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mongodb:
+    image: mongo:7
+    container_name: nms-mongodb
+    ports:
+      - "27018:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: nms-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: nms-mosquitto
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto/config:/mosquitto/config
+
+  nms-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: nms-backend
+    ports:
+      - "8080:8080"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: wifinms
+      POSTGRES_USER: nms_admin
+      POSTGRES_PASSWORD: nms_secret
+      MONGO_HOST: mongodb
+      MONGO_PORT: 27017
+      MONGO_DB: wifinms_logs
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      MQTT_BROKER_URL: tcp://mosquitto:1883
+      HEARTBEAT_TTL_SECONDS: 45
+      OTA_LOCK_TTL_SECONDS: 120
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mosquitto:
+        condition: service_started
+
+  device-simulator:
+    build:
+      context: ./simulator
+      dockerfile: Dockerfile
+    container_name: nms-device-simulator
+    environment:
+      API_BASE_URL: http://nms-backend:8080
+      MQTT_HOST: mosquitto
+      MQTT_PORT: 1883
+    depends_on:
+      - nms-backend
+
+  nms-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: nms-frontend
+    ports:
+      - "3000:80"
+    environment:
+      BACKEND_UPSTREAM: nms-backend:8080
+    depends_on:
+      - nms-backend
+
+volumes:
+  postgres_data:
+  mongo_data:

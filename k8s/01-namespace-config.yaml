@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: wifi-nms
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nms-backend-config
+  namespace: wifi-nms
+data:
+  POSTGRES_HOST: "postgres-svc.wifi-nms.svc.cluster.local"
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: "wifinms"
+  MONGO_HOST: "mongodb-svc.wifi-nms.svc.cluster.local"
+  MONGO_PORT: "27017"
+  MONGO_DB: "wifinms_logs"
+  REDIS_HOST: "redis-svc.wifi-nms.svc.cluster.local"
+  REDIS_PORT: "6379"
+  MQTT_BROKER_URL: "tcp://mosquitto-svc.wifi-nms.svc.cluster.local:1883"
+  HEARTBEAT_TTL_SECONDS: "45"
+  OTA_LOCK_TTL_SECONDS: "120"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: nms-backend-secret
+  namespace: wifi-nms
+type: Opaque
+stringData:
+  POSTGRES_USER: "nms_admin"
+  POSTGRES_PASSWORD: "change-me-in-production"
